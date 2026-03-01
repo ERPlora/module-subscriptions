@@ -70,3 +70,69 @@ class ListPlans(AssistantTool):
                 for p in plans
             ]
         }
+
+
+@register_tool
+class CreateSubscription(AssistantTool):
+    name = "create_subscription"
+    description = "Create a new subscription for a customer."
+    module_id = "subscriptions"
+    required_permission = "subscriptions.change_subscription"
+    requires_confirmation = True
+    parameters = {
+        "type": "object",
+        "properties": {
+            "plan_id": {"type": "string", "description": "Plan ID"},
+            "customer_name": {"type": "string", "description": "Customer name"},
+            "customer_email": {"type": "string", "description": "Customer email"},
+            "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+            "auto_renew": {"type": "boolean", "description": "Auto-renew (default true)"},
+        },
+        "required": ["plan_id", "customer_name", "start_date"],
+        "additionalProperties": False,
+    }
+
+    def execute(self, args, request):
+        from subscriptions.models import Subscription
+        s = Subscription.objects.create(
+            plan_id=args['plan_id'],
+            customer_name=args['customer_name'],
+            customer_email=args.get('customer_email', ''),
+            start_date=args['start_date'],
+            auto_renew=args.get('auto_renew', True),
+            status='active',
+        )
+        return {"id": str(s.id), "customer_name": s.customer_name, "plan": s.plan.name, "created": True}
+
+
+@register_tool
+class UpdateSubscriptionStatus(AssistantTool):
+    name = "update_subscription_status"
+    description = "Pause, resume, or cancel a subscription."
+    module_id = "subscriptions"
+    required_permission = "subscriptions.change_subscription"
+    requires_confirmation = True
+    parameters = {
+        "type": "object",
+        "properties": {
+            "subscription_id": {"type": "string", "description": "Subscription ID"},
+            "action": {"type": "string", "description": "Action: pause, resume, cancel"},
+        },
+        "required": ["subscription_id", "action"],
+        "additionalProperties": False,
+    }
+
+    def execute(self, args, request):
+        from subscriptions.models import Subscription
+        s = Subscription.objects.get(id=args['subscription_id'])
+        action = args['action']
+        if action == 'pause' and s.status == 'active':
+            s.status = 'paused'
+        elif action == 'resume' and s.status == 'paused':
+            s.status = 'active'
+        elif action == 'cancel':
+            s.status = 'cancelled'
+        else:
+            return {"error": f"Cannot {action} a {s.status} subscription"}
+        s.save(update_fields=['status'])
+        return {"id": str(s.id), "customer_name": s.customer_name, "status": s.status}
