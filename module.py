@@ -33,3 +33,20 @@ PERMISSIONS = [
 'subscriptions.change_plan',
 'subscriptions.manage_settings',
 ]
+
+ROLE_PERMISSIONS = {
+    "admin": ["*"],
+    "manager": [
+        "add_plan",
+        "add_subscription",
+        "change_plan",
+        "change_subscription",
+        "view_plan",
+        "view_subscription",
+    ],
+    "employee": [
+        "add_subscription",
+        "view_plan",
+        "view_subscription",
+    ],
+}
